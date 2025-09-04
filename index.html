@@ -253,7 +253,36 @@
   </div>
 
   <script>
-    const URL_CSV = "https://docs.google.com/spreadsheets/d/1bvHN5OPTjDlqJ4yG_MDIgAaJoqhp7rWcQRaYePStJXg/gviz/tq?tqx=out:csv&sheet=Hoja1";
+    // ✅ Datos simulados (reemplaza con tus datos reales)
+    const planillas = [
+      {
+        serie: "2504601",
+        nombre: "2504601",
+        jp: "29/04/2024",
+        jcc: "16/04/2025",
+        ell: "17/04/2025",
+        aseg: "18/04/2025",
+        tipo: "Cambio"
+      },
+      {
+        serie: "2504602",
+        nombre: "Lote 2",
+        jp: "",
+        jcc: "15/04/2025",
+        ell: "",
+        aseg: "",
+        tipo: "Mejora"
+      },
+      {
+        serie: "2504603",
+        nombre: "Lote 3",
+        jp: "28/04/2024",
+        jcc: "15/04/2025",
+        ell: "16/04/2025",
+        aseg: "17/04/2025",
+        tipo: "Cambio"
+      }
+    ];
 
     const tipoMap = {
       cambio: { clase: 'tipo-cambio', texto: 'Cambio' },
@@ -262,19 +291,9 @@
       otro: { clase: 'tipo-otro', texto: 'Otro' }
     };
 
-    function limpiarCelda(valor) {
-      if (!valor || valor === '""' || valor.trim() === '') return '';
-      return valor.replace(/^"|"$/g, '').trim();
-    }
-
     function formatearFecha(fecha) {
-      const limpia = limpiarCelda(fecha);
-      if (!limpia) return "<span class='empty'>—</span>";
-      // Si contiene texto como "7% KNOP", no es una fecha → mostrar como está
-      if (/%|KNOP|%/i.test(limpia)) {
-        return `<span class='fecha' title='Texto detectado, no fecha'>${limpia}</span>`;
-      }
-      return `<span class='fecha'>${limpia}</span>`;
+      if (!fecha || fecha.trim() === "") return "<span class='empty'>—</span>";
+      return `<span class='fecha'>${fecha}</span>`;
     }
 
     function getTipoClase(tipo) {
@@ -285,8 +304,7 @@
       return tipoMap.otro;
     }
 
-    let planillas = [];
-
+    // Referencias a los contadores
     const counters = {
       todas: document.getElementById('counters').children[0].querySelector('strong'),
       jp: document.getElementById('counters').children[1].querySelector('strong'),
@@ -296,45 +314,9 @@
       cerradas: document.getElementById('counters').children[5].querySelector('strong')
     };
 
-    async function cargarDatos() {
+    function cargarDatos() {
       try {
-        const response = await fetch(URL_CSV + "&t=" + Date.now());
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const csv = await response.text();
-        const lines = csv.trim().split('\n');
-        
-        if (lines.length < 2) {
-          throw new Error("No hay datos");
-        }
-
-        const headers = lines[0]
-          .split(',')
-          .map(h => h.trim().replace(/^"(.*)"$/, '$1').toLowerCase());
-
-        const col = {
-          serie: headers.findIndex(h => h.includes('serie')),
-          nombre: headers.findIndex(h => h.includes('nombre')),
-          jp: headers.findIndex(h => h.includes('fecha jp') || h.includes('jp')),
-          jcc: headers.findIndex(h => h.includes('jcc')),
-          ell: headers.findIndex(h => h.includes('ell')),
-          aseg: headers.findIndex(h => h.includes('aseg') && h.includes('calidad')),
-          tipo: headers.findIndex(h => h.includes('tipo') && h.includes('planilla'))
-        };
-
-        planillas = lines.slice(1).map(line => {
-          const values = line.split(',').map(v => limpiarCelda(v));
-          return {
-            serie: col.serie >= 0 ? values[col.serie] : '—',
-            nombre: col.nombre >= 0 ? values[col.nombre] : '—',
-            jp: col.jp >= 0 ? values[col.jp] : '',
-            jcc: col.jcc >= 0 ? values[col.jcc] : '',
-            ell: col.ell >= 0 ? values[col.ell] : '',
-            aseg: col.aseg >= 0 ? values[col.aseg] : '',
-            tipo: col.tipo >= 0 ? values[col.tipo] : ''
-          };
-        });
-
+        // Calcular contadores
         const contadores = {
           todas: planillas.length,
           jp: planillas.filter(p => !p.jp).length,
@@ -344,10 +326,12 @@
           cerradas: planillas.filter(p => p.jp && p.jcc && p.ell && p.aseg).length
         };
 
+        // Actualizar contadores
         Object.keys(contadores).forEach(key => {
           counters[key].textContent = contadores[key];
         });
 
+        // Aplicar filtro actual
         const filtroActivo = document.querySelector('.filter-btn.active').getAttribute('data-filter');
         aplicarFiltro(filtroActivo);
         llenarPanelCerradas();
@@ -418,6 +402,7 @@
       }
     }
 
+    // Eventos de filtros
     document.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -426,13 +411,15 @@
       });
     });
 
+    // Panel desplegable
     document.getElementById('toggle-cerradas').addEventListener('click', function() {
       this.classList.toggle('active');
       document.getElementById('panel-cerradas').classList.toggle('show');
     });
 
+    // Cargar datos
     cargarDatos();
-    setInterval(cargarDatos, 30000);
+    setInterval(cargarDatos, 30000); // Cada 30 segundos
   </script>
 </body>
 </html>
