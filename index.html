@@ -275,9 +275,8 @@
 
     function formatearFecha(fecha) {
       if (!fecha || fecha.trim() === "" || fecha === " ") return "<span class='empty'>—</span>";
-      const d = new Date(fecha);
-      if (isNaN(d.getTime())) return `<span class='fecha'>${fecha.trim()}</span>`;
-      return `<span class='fecha'>${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(-2)}</span>`;
+      // Solo mostrar como texto, sin intentar convertir a Date
+      return `<span class='fecha'>${fecha}</span>`;
     }
 
     function getTipoClase(tipo) {
