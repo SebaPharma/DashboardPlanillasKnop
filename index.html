@@ -38,7 +38,6 @@
       margin-bottom: 20px;
     }
 
-    /* Contadores */
     .counters {
       display: flex;
       flex-wrap: wrap;
@@ -58,7 +57,6 @@
       color: #2980b9;
     }
 
-    /* Filtros */
     .filters {
       display: flex;
       flex-wrap: wrap;
@@ -84,7 +82,6 @@
       font-weight: bold;
     }
 
-    /* Tabla */
     table {
       width: 100%;
       border-collapse: collapse;
@@ -115,7 +112,6 @@
       font-style: italic;
     }
 
-    /* Tipo de planilla */
     .tipo {
       padding: 4px 8px;
       border-radius: 12px;
@@ -128,7 +124,6 @@
     .tipo-incidencia { background-color: #e67e22; }
     .tipo-otro { background-color: #3498db; }
 
-    /* Panel desplegable */
     .collapsible {
       background-color: #2980b9;
       color: white;
@@ -154,7 +149,6 @@
       display: block;
     }
 
-    /* Sin datos */
     .no-data {
       text-align: center;
       color: #777;
@@ -200,7 +194,6 @@
 
     <div class="last-update">Última actualización: <span id="update-time">Cargando...</span></div>
 
-    <!-- Contadores -->
     <div class="counters" id="counters">
       <div class="counter">Todas: <strong>0</strong></div>
       <div class="counter">Pendiente de JP: <strong>0</strong></div>
@@ -210,7 +203,6 @@
       <div class="counter">Cerradas: <strong>0</strong></div>
     </div>
 
-    <!-- Filtros -->
     <div class="filters">
       <button class="filter-btn active" data-filter="todas">Todas</button>
       <button class="filter-btn" data-filter="jp">Pendiente de JP</button>
@@ -220,7 +212,6 @@
       <button class="filter-btn" data-filter="cerradas">Cerradas</button>
     </div>
 
-    <!-- Tabla -->
     <table id="planillas-table">
       <thead>
         <tr>
@@ -238,7 +229,6 @@
       </tbody>
     </table>
 
-    <!-- Panel de Cerradas (desplegable) -->
     <button class="collapsible" id="toggle-cerradas">✅ Planillas Cerradas (todas las firmas completas)</button>
     <div class="content" id="panel-cerradas">
       <table>
@@ -263,7 +253,6 @@
   </div>
 
   <script>
-    // ✅ URL del CSV público
     const URL_CSV = "https://docs.google.com/spreadsheets/d/1bvHN5OPTjDlqJ4yG_MDIgAaJoqhp7rWcQRaYePStJXg/gviz/tq?tqx=out:csv&sheet=Hoja1";
 
     const tipoMap = {
@@ -273,15 +262,19 @@
       otro: { clase: 'tipo-otro', texto: 'Otro' }
     };
 
-    function limpiarTexto(texto) {
-      if (!texto || texto.trim() === "") return "";
-      // Eliminar comillas dobles al inicio y fin
-      return texto.replace(/^"|"$/g, '').trim();
+    function limpiarCelda(valor) {
+      if (!valor || valor === '""' || valor.trim() === '') return '';
+      return valor.replace(/^"|"$/g, '').trim();
     }
 
     function formatearFecha(fecha) {
-      if (!fecha || fecha.trim() === "" || fecha === " ") return "<span class='empty'>—</span>";
-      return `<span class='fecha'>${limpiarTexto(fecha)}</span>`;
+      const limpia = limpiarCelda(fecha);
+      if (!limpia) return "<span class='empty'>—</span>";
+      // Si contiene texto como "7% KNOP", no es una fecha → mostrar como está
+      if (/%|KNOP|%/i.test(limpia)) {
+        return `<span class='fecha' title='Texto detectado, no fecha'>${limpia}</span>`;
+      }
+      return `<span class='fecha'>${limpia}</span>`;
     }
 
     function getTipoClase(tipo) {
@@ -294,7 +287,6 @@
 
     let planillas = [];
 
-    // Referencias a los contadores
     const counters = {
       todas: document.getElementById('counters').children[0].querySelector('strong'),
       jp: document.getElementById('counters').children[1].querySelector('strong'),
@@ -331,19 +323,18 @@
         };
 
         planillas = lines.slice(1).map(line => {
-          const values = line.split(',').map(v => v.trim().replace(/^"(.*)"$/, '$1'));
+          const values = line.split(',').map(v => limpiarCelda(v));
           return {
-            serie: col.serie >= 0 ? limpiarTexto(values[col.serie]) : '—',
-            nombre: col.nombre >= 0 ? limpiarTexto(values[col.nombre]) : '—',
-            jp: col.jp >= 0 ? limpiarTexto(values[col.jp]) : '',
-            jcc: col.jcc >= 0 ? limpiarTexto(values[col.jcc]) : '',
-            ell: col.ell >= 0 ? limpiarTexto(values[col.ell]) : '',
-            aseg: col.aseg >= 0 ? limpiarTexto(values[col.aseg]) : '',
-            tipo: col.tipo >= 0 ? limpiarTexto(values[col.tipo]) : ''
+            serie: col.serie >= 0 ? values[col.serie] : '—',
+            nombre: col.nombre >= 0 ? values[col.nombre] : '—',
+            jp: col.jp >= 0 ? values[col.jp] : '',
+            jcc: col.jcc >= 0 ? values[col.jcc] : '',
+            ell: col.ell >= 0 ? values[col.ell] : '',
+            aseg: col.aseg >= 0 ? values[col.aseg] : '',
+            tipo: col.tipo >= 0 ? values[col.tipo] : ''
           };
         });
 
-        // Calcular contadores
         const contadores = {
           todas: planillas.length,
           jp: planillas.filter(p => !p.jp).length,
@@ -353,12 +344,10 @@
           cerradas: planillas.filter(p => p.jp && p.jcc && p.ell && p.aseg).length
         };
 
-        // Actualizar contadores en pantalla
         Object.keys(contadores).forEach(key => {
           counters[key].textContent = contadores[key];
         });
 
-        // Aplicar filtro actual
         const filtroActivo = document.querySelector('.filter-btn.active').getAttribute('data-filter');
         aplicarFiltro(filtroActivo);
         llenarPanelCerradas();
@@ -377,24 +366,12 @@
       let filtradas = [];
 
       switch (filtro) {
-        case 'todas':
-          filtradas = planillas;
-          break;
-        case 'jp':
-          filtradas = planillas.filter(p => !p.jp);
-          break;
-        case 'jcc':
-          filtradas = planillas.filter(p => p.jp && !p.jcc);
-          break;
-        case 'ell':
-          filtradas = planillas.filter(p => p.jp && p.jcc && !p.ell);
-          break;
-        case 'aseg':
-          filtradas = planillas.filter(p => p.jp && p.jcc && p.ell && !p.aseg);
-          break;
-        case 'cerradas':
-          filtradas = planillas.filter(p => p.jp && p.jcc && p.ell && p.aseg);
-          break;
+        case 'todas': filtradas = planillas; break;
+        case 'jp': filtradas = planillas.filter(p => !p.jp); break;
+        case 'jcc': filtradas = planillas.filter(p => p.jp && !p.jcc); break;
+        case 'ell': filtradas = planillas.filter(p => p.jp && p.jcc && !p.ell); break;
+        case 'aseg': filtradas = planillas.filter(p => p.jp && p.jcc && p.ell && !p.aseg); break;
+        case 'cerradas': filtradas = planillas.filter(p => p.jp && p.jcc && p.ell && p.aseg); break;
       }
 
       if (filtradas.length === 0) {
@@ -441,26 +418,21 @@
       }
     }
 
-    // Eventos de filtros
     document.querySelectorAll('.filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        const filtro = btn.getAttribute('data-filter');
-        aplicarFiltro(filtro);
+        aplicarFiltro(btn.getAttribute('data-filter'));
       });
     });
 
-    // Panel desplegable
     document.getElementById('toggle-cerradas').addEventListener('click', function() {
       this.classList.toggle('active');
       document.getElementById('panel-cerradas').classList.toggle('show');
     });
 
-    // Cargar datos
     cargarDatos();
-    setInterval(cargarDatos, 30000); // Cada 30 segundos
+    setInterval(cargarDatos, 30000);
   </script>
 </body>
 </html>
-
