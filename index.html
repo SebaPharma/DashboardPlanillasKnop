@@ -139,8 +139,8 @@
   </div>
 
   <script>
-    const SHEET_ID = "1bvHN5OPTjDlqJ4yG_MDIgAaJoqhp7rWcQRaYePStJXg";
-    const URL_SHEETS = `https://spreadsheets.google.com/feeds/list/${SHEET_ID}/od6/public/values?alt=json`;
+    // ✅ Usa la exportación CSV pública (más confiable)
+    const URL_CSV = "https://docs.google.com/spreadsheets/d/1bvHN5OPTjDlqJ4yG_MDIgAaJoqhp7rWcQRaYePStJXg/gviz/tq?tqx=out:csv&sheet=Hoja1";
 
     const tipoMap = {
       cambio: { clase: 'tipo-cambio', texto: 'Cambio' },
@@ -150,9 +150,9 @@
     };
 
     function formatearFecha(fecha) {
-      if (!fecha || fecha === "") return "<span class='empty'>—</span>";
+      if (!fecha || fecha.trim() === "" || fecha === " ") return "<span class='empty'>—</span>";
       const d = new Date(fecha);
-      if (isNaN(d.getTime())) return `<span class='fecha'>${fecha}</span>`;
+      if (isNaN(d.getTime())) return `<span class='fecha'>${fecha.trim()}</span>`;
       return `<span class='fecha'>${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getFullYear().toString().slice(-2)}</span>`;
     }
 
@@ -169,48 +169,47 @@
       const updateTime = document.getElementById("update-time");
 
       try {
-        const response = await fetch(URL_SHEETS + "&t=" + Date.now());
+        const response = await fetch(URL_CSV + "&t=" + Date.now());
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const data = await response.json();
+        const csv = await response.text();
+        const lines = csv.trim().split('\n');
         
-        if (!data.feed || !data.feed.entry) {
-          throw new Error("Estructura de datos inesperada. ¿Está el Sheets público?");
+        if (lines.length < 2) {
+          throw new Error("No hay datos en el CSV. ¿Está vacío?");
         }
 
-        const entradas = data.feed.entry;
-        
-        if (entradas.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#777;">No hay datos disponibles</td></tr>`;
-          updateTime.textContent = new Date().toLocaleString('es-ES');
-          return;
-        }
-
-        // Mostrar las claves reales para depuración (opcional: quitar después)
-        console.log("Claves disponibles en el JSON:", Object.keys(entradas[0]));
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1'));
+        const rows = lines.slice(1).map(line => {
+          const values = line.split(',').map(v => v.trim().replace(/^"(.*)"$/, '$1'));
+          const row = {};
+          headers.forEach((h, i) => {
+            row[h.toLowerCase()] = values[i] || '';
+          });
+          return row;
+        });
 
         tbody.innerHTML = "";
 
-        entradas.forEach(e => {
-          // Extrae los valores con nombres flexibles
-          const serie = e['gsx$_cserie'] || e['gsx$serie'] || { $t: '—' };
-          const nombre = e['gsx$nombre'] || { $t: '—' };
-          const fechaJPE = e['gsx$fechajpe'] || { $t: '' };
-          const fechaJCC = e['gsx$fechajcc'] || { $t: '' };
-          const fechaELL = e['gsx$fechaell'] || { $t: '' };
-          const fechaAseg = e['gsx$fechaasegcalidad'] || e['gsx$asegcalidad'] || { $t: '' };
-          const tipo = e['gsx$tipoplanilla'] || { $t: '' };
+        rows.forEach(r => {
+          const serie = r['# serie'] || r['serie'] || '—';
+          const nombre = r['nombre'] || '—';
+          const fechaJPE = r['fecha jpe'] || '';
+          const fechaJCC = r['fecha jcc'] || '';
+          const fechaELL = r['fecha ell'] || '';
+          const fechaAseg = r['fecha aseg. calidad'] || '';
+          const tipo = r['tipo planilla'] || '';
 
-          const tipoInfo = getTipoClase(tipo.$t);
+          const tipoInfo = getTipoClase(tipo);
 
           const row = document.createElement("tr");
           row.innerHTML = `
-            <td><strong>${serie.$t || '—'}</strong></td>
-            <td>${nombre.$t || '—'}</td>
-            <td>${formatearFecha(fechaJPE.$t)}</td>
-            <td>${formatearFecha(fechaJCC.$t)}</td>
-            <td>${formatearFecha(fechaELL.$t)}</td>
-            <td>${formatearFecha(fechaAseg.$t)}</td>
+            <td><strong>${serie}</strong></td>
+            <td>${nombre}</td>
+            <td>${formatearFecha(fechaJPE)}</td>
+            <td>${formatearFecha(fechaJCC)}</td>
+            <td>${formatearFecha(fechaELL)}</td>
+            <td>${formatearFecha(fechaAseg)}</td>
             <td><span class="tipo ${tipoInfo.clase}">${tipoInfo.texto}</span></td>
           `;
           tbody.appendChild(row);
@@ -224,10 +223,10 @@
           <tr>
             <td colspan="7" class="error">
               ❌ Error: ${error.message}<br><br>
-              <strong>Pasos:</strong><br>
+              <strong>Solución:</strong><br>
               1. Asegúrate de que el Sheets sea <strong>público (cualquiera con el enlace puede ver)</strong><br>
-              2. Abre esta URL en incógnito: <a href="${URL_SHEETS}" target="_blank">Ver JSON</a><br>
-              3. Si no carga, vuelve a compartir el Sheets.
+              2. Verifica que tenga datos<br>
+              3. El nombre de la hoja es <strong>Hoja1</strong>? Si no, cambia en la URL: <code>&sheet=TUHOJA</code>
             </td>
           </tr>`;
         updateTime.textContent = "Error";
