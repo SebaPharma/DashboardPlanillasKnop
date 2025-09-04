@@ -1,9 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>📊 Estado de Planillas - En Vivo desde Google Sheets</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f9;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #1a5276;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+    header p {
+      margin: 5px 0 0;
+      color: #555;
+      font-size: 16px;
+    }
+    .last-update {
+      font-size: 14px;
+      color: #777;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    thead {
+      background-color: #2980b9;
+      color: white;
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    tbody tr:hover {
+      background-color: #f1f7fb;
+    }
+    .status {
+      padding: 6px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+      text-align: center;
+    }
+    .status-pendiente { background-color: #e67e22; }
+    .status-aprobada { background-color: #27ae60; }
+    .status-rechazada { background-color: #c0392b; }
+    .status-proceso { background-color: #3498db; }
+    .loading {
+      text-align: center;
+      color: #777;
+      font-style: italic;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      color: #777;
+      font-size: 14px;
+    }
+    @media (max-width: 768px) {
+      .container {
+        padding: 10px;
+      }
+      table {
+        font-size: 14px;
+      }
+      th, td {
+        padding: 8px 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 Estado de Planillas</h1>
+      <p>Actualización automática desde Google Sheets</p>
+    </header>
 
+    <div class="last-update">Última actualización: <span id="update-time">Cargando...</span></div>
+
+    <table id="planillas-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Título</th>
+          <th>Solicitante</th>
+          <th>Fecha</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="5" class="loading">Cargando datos desde Google Sheets...</td></tr>
+      </tbody>
+    </table>
+
+    <div class="footer">
+      Datos sincronizados directamente desde hoja de cálculo | Actualización cada 30 segundos
+    </div>
+  </div>
+
+  <script>
+    // 🔥 PEGA AQUÍ EL ID DE TU GOOGLE SHEETS
+    const SHEET_ID = "1aBcD...XXXXXXXXX...XyZ"; // ← Reemplaza con tu ID real
+    const URL_SHEETS = `https://spreadsheets.google.com/feeds/list/${SHEET_ID}/od6/public/values?alt=json`;
+
+    const estadosMap = {
+      pendiente: "Pendiente",
+      aprobada: "Aprobada",
+      rechazada: "Rechazada",
+      proceso: "En Proceso"
+    };
+
+    async function cargarDatos() {
+      const tbody = document.querySelector("#planillas-table tbody");
+      const updateTime = document.getElementById("update-time");
+
+      try {
+        const response = await fetch(URL_SHEETS);
+        const data = await response.json();
+        
+        const entradas = data.feed.entry || [];
+        const planillas = entradas.map(e => ({
+          ID: e.gsx$id ? e.gsx$id.$t : 'N/A',
+          Título: e.gsx$título ? e.gsx$título.$t : 'Sin título',
+          Solicitante: e.gsx$solicitante ? e.gsx$solicitante.$t : 'N/A',
+          Fecha: e.gsx$fecha ? e.gsx$fecha.$t : 'N/A',
+          Estado: e.gsx$estado ? e.gsx$estado.$t.toLowerCase() : 'pendiente'
+        }));
+
+        tbody.innerHTML = "";
+
+        if (planillas.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5">No hay datos disponibles</td></tr>`;
+        }
+
+        planillas.forEach(p => {
+          const estadoLimpio = p.Estado.trim();
+          const estadoTexto = estadosMap[estadoLimpio] || p.Estado;
+          const estadoClase = ['pendiente', 'aprobada', 'rechazada', 'proceso'].includes(estadoLimpio) ? estadoLimpio : 'proceso';
+
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${p.ID}</td>
+            <td>${p.Título}</td>
+            <td>${p.Solicitante}</td>
+            <td>${p.Fecha}</td>
+            <td><span class="status status-${estadoClase}">${estadoTexto}</span></td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        updateTime.textContent = new Date().toLocaleString('es-ES');
+
+      } catch (error) {
+        console.error("Error al cargar datos:", error);
+        tbody.innerHTML = `<tr><td colspan="5" style="color:red; text-align:center">Error al cargar datos. Verifica el ID de la hoja o comparte como público.</td></tr>`;
+        updateTime.textContent = "Error";
+      }
+    }
+
+    cargarDatos();
+    setInterval(cargarDatos, 30000); // Refrescar cada 30 segundos
+  </script>
+</body>
+</html>
+
+<!-- Primer código
 <!DOCTYPE html>
 <html>
 <head>
   <title>Estado de Planillas</title>
-  <meta http-equiv="refresh" content="30"> <!-- Refrescar cada 30 segundos -->
+  <meta http-equiv="refresh" content="30"> <!-- Refrescar cada 30 segundos 
 </head>
 <body>
   <h1>Estado de Planillas</h1>
@@ -28,3 +218,5 @@
   </script>
 </body>
 </html>
+
+-->
