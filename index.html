@@ -38,6 +38,26 @@
       margin-bottom: 20px;
     }
 
+    /* Contadores */
+    .counters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 15px;
+      font-size: 14px;
+      color: #555;
+    }
+    .counter {
+      background-color: #d6eaf8;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    .counter strong {
+      color: #2980b9;
+    }
+
     /* Filtros */
     .filters {
       display: flex;
@@ -158,11 +178,11 @@
       }
     }
     @media (max-width: 768px) {
-      .filters {
+      .filters, .counters {
         flex-direction: column;
-        align-items: stretch;
+        align-items: center;
       }
-      .filter-btn {
+      .counter, .filter-btn {
         text-align: center;
       }
       table {
@@ -179,6 +199,16 @@
     </header>
 
     <div class="last-update">Última actualización: <span id="update-time">Cargando...</span></div>
+
+    <!-- Contadores -->
+    <div class="counters" id="counters">
+      <div class="counter">Todas: <strong>0</strong></div>
+      <div class="counter">Pendiente de JP: <strong>0</strong></div>
+      <div class="counter">Pendiente de JCC: <strong>0</strong></div>
+      <div class="counter">Pendiente de ELL: <strong>0</strong></div>
+      <div class="counter">Pendiente de Aseg. Calidad: <strong>0</strong></div>
+      <div class="counter">Cerradas: <strong>0</strong></div>
+    </div>
 
     <!-- Filtros -->
     <div class="filters">
@@ -260,6 +290,16 @@
 
     let planillas = [];
 
+    // Referencias a los contadores
+    const counters = {
+      todas: document.getElementById('counters').children[0].querySelector('strong'),
+      jp: document.getElementById('counters').children[1].querySelector('strong'),
+      jcc: document.getElementById('counters').children[2].querySelector('strong'),
+      ell: document.getElementById('counters').children[3].querySelector('strong'),
+      aseg: document.getElementById('counters').children[4].querySelector('strong'),
+      cerradas: document.getElementById('counters').children[5].querySelector('strong')
+    };
+
     async function cargarDatos() {
       try {
         const response = await fetch(URL_CSV + "&t=" + Date.now());
@@ -276,7 +316,6 @@
           .split(',')
           .map(h => h.trim().replace(/^"(.*)"$/, '$1').toLowerCase());
 
-        // Buscamos "fecha jp", "jcc", "ell", "aseg", etc.
         const col = {
           serie: headers.findIndex(h => h.includes('serie')),
           nombre: headers.findIndex(h => h.includes('nombre')),
@@ -300,8 +339,24 @@
           };
         });
 
-        // Actualizar tabla y paneles
-        aplicarFiltro('todas');
+        // Calcular contadores
+        const contadores = {
+          todas: planillas.length,
+          jp: planillas.filter(p => !p.jp).length,
+          jcc: planillas.filter(p => p.jp && !p.jcc).length,
+          ell: planillas.filter(p => p.jp && p.jcc && !p.ell).length,
+          aseg: planillas.filter(p => p.jp && p.jcc && p.ell && !p.aseg).length,
+          cerradas: planillas.filter(p => p.jp && p.jcc && p.ell && p.aseg).length
+        };
+
+        // Actualizar contadores en pantalla
+        Object.keys(contadores).forEach(key => {
+          counters[key].textContent = contadores[key];
+        });
+
+        // Aplicar filtro actual
+        const filtroActivo = document.querySelector('.filter-btn.active').getAttribute('data-filter');
+        aplicarFiltro(filtroActivo);
         llenarPanelCerradas();
         document.getElementById("update-time").textContent = new Date().toLocaleString('es-ES');
 
@@ -404,5 +459,4 @@
   </script>
 </body>
 </html>
-
 
