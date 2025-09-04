@@ -273,10 +273,15 @@
       otro: { clase: 'tipo-otro', texto: 'Otro' }
     };
 
+    function limpiarTexto(texto) {
+      if (!texto || texto.trim() === "") return "";
+      // Eliminar comillas dobles al inicio y fin
+      return texto.replace(/^"|"$/g, '').trim();
+    }
+
     function formatearFecha(fecha) {
       if (!fecha || fecha.trim() === "" || fecha === " ") return "<span class='empty'>—</span>";
-      // Solo mostrar como texto, sin intentar convertir a Date
-      return `<span class='fecha'>${fecha}</span>`;
+      return `<span class='fecha'>${limpiarTexto(fecha)}</span>`;
     }
 
     function getTipoClase(tipo) {
@@ -328,13 +333,13 @@
         planillas = lines.slice(1).map(line => {
           const values = line.split(',').map(v => v.trim().replace(/^"(.*)"$/, '$1'));
           return {
-            serie: col.serie >= 0 ? values[col.serie] : '—',
-            nombre: col.nombre >= 0 ? values[col.nombre] : '—',
-            jp: col.jp >= 0 ? values[col.jp] : '',
-            jcc: col.jcc >= 0 ? values[col.jcc] : '',
-            ell: col.ell >= 0 ? values[col.ell] : '',
-            aseg: col.aseg >= 0 ? values[col.aseg] : '',
-            tipo: col.tipo >= 0 ? values[col.tipo] : ''
+            serie: col.serie >= 0 ? limpiarTexto(values[col.serie]) : '—',
+            nombre: col.nombre >= 0 ? limpiarTexto(values[col.nombre]) : '—',
+            jp: col.jp >= 0 ? limpiarTexto(values[col.jp]) : '',
+            jcc: col.jcc >= 0 ? limpiarTexto(values[col.jcc]) : '',
+            ell: col.ell >= 0 ? limpiarTexto(values[col.ell]) : '',
+            aseg: col.aseg >= 0 ? limpiarTexto(values[col.aseg]) : '',
+            tipo: col.tipo >= 0 ? limpiarTexto(values[col.tipo]) : ''
           };
         });
 
