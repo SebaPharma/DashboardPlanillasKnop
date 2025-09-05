@@ -225,7 +225,7 @@
         </tr>
       </thead>
       <tbody id="table-body">
-        <tr><td colspan="7" class="loading">Cargando datos...</td></tr>
+        <tr><td colspan="7" class="loading">Cargando datos desde Google Sheets...</td></tr>
       </tbody>
     </table>
 
@@ -248,13 +248,14 @@
     </div>
 
     <div class="footer">
-      Dashboard interactivo | Actualización cada 30 segundos
+      Datos desde Google Sheets | Actualización cada 30 segundos
     </div>
   </div>
 
   <script>
-    // ✅ Lee el CSV desde GitHub
-    const URL_CSV = "https://sebapharma.github.io/DashboardPlanillasKnop.github.io/datos.csv";
+    // ✅ URL del CSV público de Google Sheets
+    const SHEET_ID = "1bvHN5OPTjDlqJ4yG_MDIgAaJoqhp7rWcQRaYePStJXg";
+    const URL_CSV = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Hoja1`;
 
     const tipoMap = {
       cambio: { clase: 'tipo-cambio', texto: 'Cambio' },
@@ -299,11 +300,19 @@
 
     async function cargarDatos() {
       try {
-        const response = await fetch(URL_CSV + "?t=" + Date.now());
+        const response = await fetch(URL_CSV + "&t=" + Date.now());
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const csv = await response.text();
-        const lines = csv.trim().split('\n');
+        // 🔁 Corregir codificación manualmente si es necesario
+        let csvText = await response.text();
+        
+        // 💡 Intentar corregir codificación si tiene caracteres rotos
+        if (csvText.includes('VÂ°BÂ°') || csvText.includes('FABRICACIÃ“N')) {
+          const blob = new Blob([await response.arrayBuffer()], { type: 'text/csv;charset=ISO-8859-1' });
+          csvText = await new Response(blob).text();
+        }
+
+        const lines = csvText.trim().split('\n');
         
         if (lines.length < 2) {
           throw new Error("No hay datos");
@@ -311,16 +320,16 @@
 
         const headers = lines[0]
           .split(',')
-          .map(h => limpiarCelda(h));
+          .map(h => limpiarCelda(h.toLowerCase()));
 
         const col = {
-          serie: headers.findIndex(h => h.includes('Serie')),
-          nombre: headers.findIndex(h => h.includes('Nombre')),
-          jp: headers.findIndex(h => h.includes('Fecha JP')),
-          jcc: headers.findIndex(h => h.includes('Fecha JCC')),
-          ell: headers.findIndex(h => h.includes('Fecha ELL')),
-          aseg: headers.findIndex(h => h.includes('Aseg') && h.includes('Calidad')),
-          tipo: headers.findIndex(h => h.includes('Tipo') && h.includes('Planilla'))
+          serie: headers.findIndex(h => h.includes('serie')),
+          nombre: headers.findIndex(h => h.includes('nombre')),
+          jp: headers.findIndex(h => h.includes('fecha jp')),
+          jcc: headers.findIndex(h => h.includes('fecha jcc')),
+          ell: headers.findIndex(h => h.includes('fecha ell')),
+          aseg: headers.findIndex(h => h.includes('aseg') && h.includes('calidad')),
+          tipo: headers.findIndex(h => h.includes('tipo') && h.includes('planilla'))
         };
 
         planillas = lines.slice(1).map(line => {
@@ -358,7 +367,7 @@
         document.getElementById("update-time").textContent = new Date().toLocaleString('es-ES');
 
       } catch (error) {
-        console.error("Error:", error);
+        console.error("Error al cargar datos:", error);
         document.getElementById("table-body").innerHTML = 
           `<tr><td colspan="7" class="error">❌ Error: ${error.message}</td></tr>`;
         document.getElementById("update-time").textContent = "Error";
@@ -370,24 +379,12 @@
       let filtradas = [];
 
       switch (filtro) {
-        case 'todas':
-          filtradas = planillas;
-          break;
-        case 'jp':
-          filtradas = planillas.filter(p => esVacio(p.jp));
-          break;
-        case 'jcc':
-          filtradas = planillas.filter(p => !esVacio(p.jp) && esVacio(p.jcc));
-          break;
-        case 'ell':
-          filtradas = planillas.filter(p => !esVacio(p.jp) && !esVacio(p.jcc) && esVacio(p.ell));
-          break;
-        case 'aseg':
-          filtradas = planillas.filter(p => !esVacio(p.jp) && !esVacio(p.jcc) && !esVacio(p.ell) && esVacio(p.aseg));
-          break;
-        case 'cerradas':
-          filtradas = planillas.filter(p => !esVacio(p.jp) && !esVacio(p.jcc) && !esVacio(p.ell) && !esVacio(p.aseg));
-          break;
+        case 'todas': filtradas = planillas; break;
+        case 'jp': filtradas = planillas.filter(p => esVacio(p.jp)); break;
+        case 'jcc': filtradas = planillas.filter(p => !esVacio(p.jp) && esVacio(p.jcc)); break;
+        case 'ell': filtradas = planillas.filter(p => !esVacio(p.jp) && !esVacio(p.jcc) && esVacio(p.ell)); break;
+        case 'aseg': filtradas = planillas.filter(p => !esVacio(p.jp) && !esVacio(p.jcc) && !esVacio(p.ell) && esVacio(p.aseg)); break;
+        case 'cerradas': filtradas = planillas.filter(p => !esVacio(p.jp) && !esVacio(p.jcc) && !esVacio(p.ell) && !esVacio(p.aseg)); break;
       }
 
       if (filtradas.length === 0) {
